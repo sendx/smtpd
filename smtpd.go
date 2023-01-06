@@ -32,7 +32,7 @@ var (
 )
 
 // Handler function called upon successful receipt of an email.
-type Handler func(remoteAddr net.Addr, from string, to []string, data []byte) error
+type Handler func(remoteAddr net.Addr, from string, to []string, data []byte, optional ...string) error
 
 // HandlerRcpt function called on RCPT. Return accept status.
 type HandlerRcpt func(remoteAddr net.Addr, from string, to string) bool
@@ -220,6 +220,7 @@ type session struct {
 	remoteHost    string // Remote hostname according to reverse DNS lookup
 	remoteName    string // Remote hostname as supplied with EHLO
 	tls           bool
+	username      string // username used for authentication
 	authenticated bool
 }
 
@@ -473,7 +474,7 @@ loop:
 
 			// Pass mail on to handler.
 			if s.srv.Handler != nil {
-				err := s.srv.Handler(s.conn.RemoteAddr(), from, to, buffer.Bytes())
+				err := s.srv.Handler(s.conn.RemoteAddr(), from, to, buffer.Bytes(), s.username)
 				if err != nil {
 					s.writef("451 4.3.5 Unable to process mail")
 					break
@@ -791,6 +792,8 @@ func (s *session) handleAuthLogin(arg string) (bool, error) {
 		return false, errors.New("501 5.5.2 Syntax error (unable to decode)")
 	}
 
+	s.username = string(username)
+
 	// Validate credentials.
 	authenticated, err := s.srv.AuthHandler(s.conn.RemoteAddr(), "LOGIN", username, password, nil)
 
@@ -818,6 +821,8 @@ func (s *session) handleAuthPlain(arg string) (bool, error) {
 	if len(parts) != 3 {
 		return false, errors.New("501 5.5.2 Syntax error (unable to parse)")
 	}
+
+	s.username = string(parts[1])
 
 	// Validate credentials.
 	authenticated, err := s.srv.AuthHandler(s.conn.RemoteAddr(), "PLAIN", parts[1], parts[2], nil)
@@ -849,6 +854,7 @@ func (s *session) handleAuthCramMD5() (bool, error) {
 		return false, errors.New("501 5.5.2 Syntax error (unable to parse)")
 	}
 
+	s.username = fields[0]
 	// Validate credentials.
 	authenticated, err := s.srv.AuthHandler(s.conn.RemoteAddr(), "CRAM-MD5", []byte(fields[0]), []byte(fields[1]), []byte(shared))
 

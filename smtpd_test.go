@@ -311,8 +311,8 @@ type mockHandler struct {
 	handlerCalled int
 }
 
-func (m *mockHandler) handler(err error) func(a net.Addr, f string, t []string, d []byte) error {
-	return func(a net.Addr, f string, t []string, d []byte) error {
+func (m *mockHandler) handler(err error) func(a net.Addr, f string, t []string, d []byte, optional ...string) error {
+	return func(a net.Addr, f string, t []string, d []byte, optional ...string) error {
 		m.handlerCalled++
 		return err
 	}
